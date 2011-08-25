@@ -1,0 +1,202 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//JA" "http://www.w3.org/TR/html4/loose.dtd"><html>
+<head>
+<!-- テスト対象モジュール -->
+<script src="../lib/sixnimmt.js"></script>
+
+<!-- QUnit ここから -->
+<script src="qunit/jquery-1.6.2.min.js"></script>
+<script src="qunit/qunit.js"></script>
+<link rel="stylesheet" href="qunit/qunit.css" type="text/css" />
+<script>
+$(document).ready(function(){
+// テストコード
+
+module("6nimmt");
+
+test("カードの得点", function() {
+	equals( newCard('01').getPoint(), 1 );
+	equals( newCard('02').getPoint(), 1 );
+	equals( newCard('15').getPoint(), 2 );
+	equals( newCard('20').getPoint(), 3 );
+	equals( newCard('33').getPoint(), 5 );
+	equals( newCard('55').getPoint(), 7 );
+	
+	equals( Number(newCard('10').number), 10);
+	equals( Number(newCard('01').number), 1);
+	
+	expect( 8 ); // テスト総数
+});
+
+test("デッキ", function() {
+	
+	// デッキからカードを全部取得
+	var deck = newDeck();
+	equals(deck.getRemainingNumber(), 104);
+	
+	var usedCards = new Array();
+	for(var i=0; i< 104; i++) {
+	  usedCards.push(deck.getCardRondomly());
+	  equals(deck.getRemainingNumber(), 103 - i);
+	}
+	
+	// Array.sort関数を使って、同じカードがないことを保証する
+	usedCards.sort();
+	usedCards.sort(function(left, right) {
+	  notEqual(left.number, right.number); return 0;
+	});
+	
+	// デッキにはカードは残っていないはず
+	equals(deck.getCardRondomly(), null);
+	
+	expect(209);	// 1 + 104 + 103 + 1 = 209
+});
+
+test("カード配列", function() {
+	var cards = newCardArray();
+	cards.push(newCard('01'));
+	cards.push(newCard('10'));
+	equals( cards.last().number, '10');
+	
+	cards.push(newCard('15'));
+	equals( cards.last().number, '15');
+	
+	cards.remove(0);
+	equals( cards.last().number, '15');
+	equals( cards[0].number, '10');
+	equals( cards.length, 2);
+	
+	equals(cards.getPoint(), 5);
+	
+	var cards = newCardArray();
+	cards.push(newCard('10'));
+	cards.push(newCard('15'));
+	cards.push(newCard('01'));
+	cards.sortCards();
+
+	equals( cards[0].number, '01');
+	
+	expect(7);
+});
+
+test("手札", function() {
+	var deck = newDeck();
+	var hands = newHands(deck, null);
+	
+	equals( hands.length, 10);
+	
+	hands.remove(0);
+	
+	equals(hands.length, 9);
+	
+	expect( 2 );
+});
+
+test("プレイヤー", function() {
+	var deck = newDeck();
+	var player = newPlayer(deck);
+	
+	equals( player.hands.length, 10);
+	
+	equals(player.point, 0);
+	
+	player.point += 10;
+	
+	equals(player.point, 10);
+	
+	expect( 3 );
+});
+
+test("カード置き場", function() {
+	
+	// デッキのモックオブジェクトを作成
+	var deck = new Object();
+	var counter = 0;
+	deck.getCardRondomly = function() {
+	  counter = counter + 10;
+	  return newCard('' + counter);
+	}
+	
+	var field = newField(deck);
+		
+	// 初期配置のテスト
+	equals( field.columns.length, 4);
+	equals( field.columns[0][0].number, '10');
+	equals( field.columns[1][0].number, '20');
+	equals( field.columns[2][0].number, '30');
+	equals( field.columns[3][0].number, '40');
+	
+	equals(field.getMinOfTopCards().number, '10');
+	equals(field.findColIndexInTopCards(field.columns[2][0]), 2)
+	equals(field.getColIndexOfMinOfTopCards(), 0);
+	
+	// 場に出したカードの置き場を探す
+	equals(field.findColIndexForPushCard(newCard('11')), 0);
+	equals(field.findColIndexForPushCard(newCard('39')), 2);
+	equals(field.findColIndexForPushCard(newCard('55')), 3);
+	equals(field.findColIndexForPushCard(newCard('01')), null);
+	
+	// 列入れ替え
+	field.resetColumn(0, newCard('05'));
+	equals(field.columns[0][0].number, '05');
+	field.resetColumn(1, newCard('21'));
+	equals(field.columns[1][0].number, '21');
+	
+	// 場に出したカードの置き場を探す
+	var cards = newCardArray();
+	cards.push(newCard('11'));
+	cards.push(newCard('05'));
+	cards.push(newCard('39'));
+	cards.push(newCard('31'));
+	cards.push(newCard('42'));
+	cards.push(newCard('43'));
+	cards.push(newCard('44'));
+	cards.push(newCard('45'));
+	cards.push(newCard('46'));
+	cards.push(newCard('47'));
+	
+	// プレイヤーのモックオブジェクトをカードに付与
+	for(var i=0; i< cards.length; i++) {
+	  cards[i].player = new Object();
+	  cards[i].player.point = 0;
+	}
+	
+	field.pushCards(cards);
+	equals(field.columns[0][0].number, '05');
+	equals(field.columns[0][1].number, '11');
+	equals(field.columns[2][0].number, '30');
+	equals(field.columns[2][1].number, '31');
+	equals(field.columns[2][2].number, '39');
+	equals(field.columns[3][0].number, '46');
+	equals(field.columns[3][1].number, '47');
+
+	// 得点
+	equals(cards[0].player.point, 2);
+	equals(cards[0].number, '05')
+	equals(cards[1].player.point, 0);
+	equals(cards[1].number, '11');	
+	equals(cards[2].player.point, 0);
+	equals(cards[8].player.point, 12);
+	equals(cards[8].number, '46');
+	equals(cards[9].player.point, 0);
+	equals(cards[9].number, '47');
+
+	expect(30);
+});
+
+
+// テストコード終了
+});
+
+</script>
+
+</head>
+
+<body>
+	<h1 id="qunit-header">6nimmtユニットテスト</h1>
+	<h2 id="qunit-banner"></h2>
+	<div id="qunit-testrunner-toolbar"></div>
+	<h2 id="qunit-userAgent"></h2>
+	<ol id="qunit-tests"></ol>
+	<div id="qunit-fixture">test markup, will be hidden</div>
+</body>
+</html>
